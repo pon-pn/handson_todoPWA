@@ -1,16 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
+import { FormDialog } from './FormDialog';
+import { ActionButton } from './ActionButton';
+import { SideBar } from './SideBar';
+import { TodoItem } from './TodoItem';
+import { ToolBar } from './ToolBar';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { indigo, pink } from '@mui/material/colors';
+import { GlobalStyles } from '@mui/material';
+import { QR } from './QR';
+import { AlertDialog } from './AlertDialog';
+// localforage をインポート
+import localforage from 'localforage';
+import { isTodos } from './lib/isTodos';
 
-// "Todo型" の定義
-type Todo = {
-  // プロパティ value は文字列型
-  value: string;
-  readonly id: number;
-  checked: boolean;
-  removed: boolean;
-};
 
-type Filter = 'all' | 'checked' | 'unchecked' | 'removed';
 
 export const App = () => {
   // 初期値: 空文字列
@@ -18,11 +22,18 @@ export const App = () => {
   // 更新後のステートが更新前のステートの値に依存している場合には、setState メソッドには値ではなく関数を渡すべき
   const [todos, setTodos] = useState<Todo[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [alertOpen, setAlertOpen] = useState(false);
 
   // todosステートを更新する関数
   const handleSubmit = () => {
     // 何も入力されていなかったらリターン
-    if (!text) return;
+    if (!text) {
+      setDialogOpen((dialogOpen) => !dialogOpen);
+      return
+    }
 
     // 新たなTODOを作成
     // 明示的に型注釈をつけてオブジェクトの型を限定する
@@ -36,11 +47,13 @@ export const App = () => {
     // 更新前のステートの値を元に新ステートを生成
     setTodos((todos) => [newTodo, ...todos]);
     setText('');
+
+    setDialogOpen((dialogOpen) => !dialogOpen);
   }
 
   // textステートが持っている入力中のテキストをvalueとして表示
   // onChangeをtextステートに反映する（targetは参照）
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setText(e.target.value)
   }
 
@@ -62,106 +75,87 @@ export const App = () => {
     })
   };
 
-  // // 編集用のコールバック関数
-  // const handleEdit = (id: number, value: string) => {
-  //   setTodos((todos) => {
-  //     const newTodos = todos.map((todo) => {
-  //       if (todo.id === id) {
-  //         // todoをコピー展開＋valueを引数で上書き
-  //         return { ...todo, value: value }
-  //         // todo.value = value;
-  //       }
-  //       return todo;
-  //     });
-  //     return newTodos;
-  //   })
-  // }
-
-  // const handleCheck = (id: number, checked: boolean) => {
-  //   setTodos((todos) => {
-  //     const newTodos = todos.map((todo) => {
-  //       if (todo.id === id) {
-  //         return { ...todo, checked };
-  //       }
-  //       return todo;
-  //     })
-  //     return newTodos;
-  //   })
-  // }
-
-  // const handleRemoved = (id: number, removed: boolean) => {
-  //   setTodos((todos) => {
-  //     const newTodos = todos.map((todo) => {
-  //       if (todo.id === id) {
-  //         return { ...todo, removed };
-  //       }
-  //       return todo;
-  //     })
-  //     return newTodos;
-  //   })
-  // }
-
   const handleSort = (filter: Filter) => {
     setFilter(filter);
   }
-
-  const filteredTodos = todos.filter((todo) => {
-    switch (filter) {
-      case 'all':
-        return !todo.removed;
-      case 'checked':
-        return todo.checked && !todo.removed;
-      case 'unchecked':
-        return !todo.checked && !todo.removed;
-      case 'removed':
-        return todo.removed;
-      default:
-        return todo;
-    }
-  })
 
   const handleEmpty = () => {
     setTodos((todos) => todos.filter((todo) => !todo.removed));
   }
 
-  return (
-    <div>
-      <select defaultValue="all" onChange={(e) => handleSort(e.target.value as Filter)}>
-        <option value="all">すべてのタスク</option>
-        <option value="checked">完了したタスク</option>
-        <option value="unchecked">現在のタスク</option>
-        <option value="removed">ごみ箱</option>
-      </select>
-      {filter === 'removed' ? (
-        <button onClick={handleEmpty} disabled={todos.filter((todo) => todo.removed).length === 0}>ゴミ箱を空にする</button>
-      ) : (
-        filter !== 'checked' && (
-          <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
-            <input type='text' value={text} onChange={(e) => handleChange(e)} />
-            <input type="submit" value="追加" onClick={handleSubmit} />
-          </form>
-        )
-      )}
+  const theme = createTheme({
+    palette: {
+      primary: {
+        main: indigo[500],
+        light: '#757de8',
+        dark: '#002984'
+      },
+      secondary: {
+        main: pink[500],
+        light: '#ff6090',
+        dark: '#b0003a',
+      },
+    }
+  });
 
-      <ul>
-        {filteredTodos.map((todo) => {
-          return <li key={todo.id}>{todo.value}
-            {/* 呼び出し側でcheckedフラグを反転させる */}
-            <input
-              type="checkbox"
-              disabled={todo.removed}
-              checked={todo.checked}
-              onChange={() => handleTodo(todo.id, `checked`, !todo.checked)}
-            />
-            <input
-              type='text'
-              disabled={todo.checked || todo.removed}
-              value={todo.value}
-              onChange={(e) => handleTodo(todo.id, `value`, e.target.value)} />
-            <button onClick={() => handleTodo(todo.id, `removed`, !todo.removed)}>{todo.removed ? '復元' : '削除'}</button>
-          </li>
-        })}
-      </ul>
-    </div >
+  const handleToggleDrawer = () => {
+    setDrawerOpen((drawerOpen) => !drawerOpen);
+  }
+
+  const handleToggleQR = () => {
+    setQrOpen((qrOpen) => !qrOpen)
+  }
+
+  const handleToggleDialog = () => {
+    setDialogOpen((dialogOpen) => !dialogOpen);
+    setText("");
+  }
+
+  const handleToggleAlert = () => {
+    setAlertOpen((alertOpen) => !alertOpen);
+  }
+
+  useEffect(() => {
+    localforage
+      .getItem('todo-20200101')
+      .then((values) => isTodos(values) && setTodos(values as Todo[]));
+  }, []);
+
+  useEffect(() => {
+    localforage.setItem("todo-20200101", todos);
+  }, [todos])
+
+  return (
+    <ThemeProvider theme={theme}>
+      <GlobalStyles styles={{ body: { margin: 0, padding: 0 } }} />
+      <ToolBar filter={filter} onToggleDrawer={handleToggleDrawer} />
+      <SideBar
+        drawerOpen={drawerOpen}
+        onToggleDrawer={handleToggleDrawer}
+        onToggleQR={handleToggleQR}
+        onSort={handleSort}
+      />
+      <QR open={qrOpen} onClose={handleToggleQR} />
+      <FormDialog
+        text={text}
+        dialogOpen={dialogOpen}
+        onChange={handleChange}
+        onSubmit={handleSubmit}
+        onToggleDialog={handleToggleDialog} />
+      <AlertDialog
+        alertOpen={alertOpen}
+        onEmpty={handleEmpty}
+        onToggleAlert={handleToggleAlert}
+      />
+      <TodoItem todos={todos} filter={filter} onTodo={handleTodo} />
+      <ActionButton
+        todos={todos}
+        filter={filter}
+        alertOpen={alertOpen}
+        dialogOpen={dialogOpen}
+        onToggleAlert={handleToggleAlert}
+        onToggleDialog={handleToggleDialog}
+      />
+    </ThemeProvider >
   )
 };

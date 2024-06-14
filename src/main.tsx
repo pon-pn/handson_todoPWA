@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client';
-import {App} from './App'
-import './index.css'
+import { App } from './App'
 
 // createRootメソッドを用いて、<div id="root"> という要素を取得しReactのルートとする
 // Element型としてアサーションしている
@@ -9,7 +8,7 @@ import './index.css'
 const root = createRoot(document.getElementById("root") as Element);
 
 // DOM 内部へ<App />コンポーネントをレンダリングしている
-root.render (
+root.render(
   <StrictMode>
     <App />
   </StrictMode>

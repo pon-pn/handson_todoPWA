@@ -1,42 +1,75 @@
-import { useEffect, useState } from 'react'
-import './App.css'
-import { FormDialog } from './FormDialog';
-import { ActionButton } from './ActionButton';
-import { SideBar } from './SideBar';
-import { TodoItem } from './TodoItem';
-import { ToolBar } from './ToolBar';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { indigo, pink } from '@mui/material/colors';
-import { GlobalStyles } from '@mui/material';
-import { QR } from './QR';
-import { AlertDialog } from './AlertDialog';
-// localforage をインポート
-import localforage from 'localforage';
-import { isTodos } from './lib/isTodos';
+import { useEffect, useState } from "react";
 
+import localforage from "localforage";
 
+import GlobalStyles from "@mui/material/GlobalStyles";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { indigo, pink } from "@mui/material/colors";
+
+import { QR } from "./QR";
+import { ToolBar } from "./ToolBar";
+import { SideBar } from "./SideBar";
+import { TodoItem } from "./TodoItem";
+import { FormDialog } from "./FormDialog";
+import { AlertDialog } from "./AlertDialog";
+import { ActionButton } from "./ActionButton";
+
+import { isTodos } from "./lib/isTodos";
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: indigo[500],
+      light: "#757de8",
+      dark: "#002984",
+    },
+    secondary: {
+      main: pink[500],
+      light: "#ff6090",
+      dark: "#b0003a",
+    },
+  },
+});
 
 export const App = () => {
-  // 初期値: 空文字列
-  const [text, setText] = useState('');
-  // 更新後のステートが更新前のステートの値に依存している場合には、setState メソッドには値ではなく関数を渡すべき
+  const [text, setText] = useState("");
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [filter, setFilter] = useState<Filter>('all');
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [qrOpen, setQrOpen] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [alertOpen, setAlertOpen] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
 
-  // todosステートを更新する関数
+  const [qrOpen, setQrOpen] = useState(false);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const handleToggleQR = () => {
+    setQrOpen((qrOpen) => !qrOpen);
+  };
+
+  const handleToggleDrawer = () => {
+    setDrawerOpen((drawerOpen) => !drawerOpen);
+  };
+
+  const handleToggleDialog = () => {
+    setDialogOpen((dialogOpen) => !dialogOpen);
+    setText("");
+  };
+
+  const handleToggleAlert = () => {
+    setAlertOpen((alertOpen) => !alertOpen);
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setText(e.target.value);
+  };
+
   const handleSubmit = () => {
-    // 何も入力されていなかったらリターン
     if (!text) {
       setDialogOpen((dialogOpen) => !dialogOpen);
-      return
+      return;
     }
 
-    // 新たなTODOを作成
-    // 明示的に型注釈をつけてオブジェクトの型を限定する
     const newTodo: Todo = {
       value: text,
       id: new Date().getTime(),
@@ -44,20 +77,11 @@ export const App = () => {
       removed: false,
     };
 
-    // 更新前のステートの値を元に新ステートを生成
     setTodos((todos) => [newTodo, ...todos]);
-    setText('');
-
+    setText("");
     setDialogOpen((dialogOpen) => !dialogOpen);
-  }
+  };
 
-  // textステートが持っている入力中のテキストをvalueとして表示
-  // onChangeをtextステートに反映する（targetは参照）
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setText(e.target.value)
-  }
-
-  // V extends Todo[K] => todo.id, todo.value, todo.checked, todo.removed のいずれかの値
   const handleTodo = <K extends keyof Todo, V extends Todo[K]>(
     id: number,
     key: K,
@@ -66,64 +90,33 @@ export const App = () => {
     setTodos((todos) => {
       const newTodos = todos.map((todo) => {
         if (todo.id === id) {
-          return { ...todo, [key]: value }
+          return { ...todo, [key]: value };
         } else {
-          return todo
+          return todo;
         }
-      })
+      });
+
       return newTodos;
-    })
+    });
+  };
+
+  const handleEmpty = () => {
+    setTodos((todos) => todos.filter((todo) => !todo.removed));
   };
 
   const handleSort = (filter: Filter) => {
     setFilter(filter);
-  }
-
-  const handleEmpty = () => {
-    setTodos((todos) => todos.filter((todo) => !todo.removed));
-  }
-
-  const theme = createTheme({
-    palette: {
-      primary: {
-        main: indigo[500],
-        light: '#757de8',
-        dark: '#002984'
-      },
-      secondary: {
-        main: pink[500],
-        light: '#ff6090',
-        dark: '#b0003a',
-      },
-    }
-  });
-
-  const handleToggleDrawer = () => {
-    setDrawerOpen((drawerOpen) => !drawerOpen);
-  }
-
-  const handleToggleQR = () => {
-    setQrOpen((qrOpen) => !qrOpen)
-  }
-
-  const handleToggleDialog = () => {
-    setDialogOpen((dialogOpen) => !dialogOpen);
-    setText("");
-  }
-
-  const handleToggleAlert = () => {
-    setAlertOpen((alertOpen) => !alertOpen);
-  }
+  };
 
   useEffect(() => {
     localforage
-      .getItem('todo-20200101')
-      .then((values) => isTodos(values) && setTodos(values as Todo[]));
+      .getItem("todo-20200101")
+      .then((values) => isTodos(values) && setTodos(values));
   }, []);
 
   useEffect(() => {
     localforage.setItem("todo-20200101", todos);
-  }, [todos])
+  }, [todos]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -131,9 +124,9 @@ export const App = () => {
       <ToolBar filter={filter} onToggleDrawer={handleToggleDrawer} />
       <SideBar
         drawerOpen={drawerOpen}
-        onToggleDrawer={handleToggleDrawer}
-        onToggleQR={handleToggleQR}
         onSort={handleSort}
+        onToggleQR={handleToggleQR}
+        onToggleDrawer={handleToggleDrawer}
       />
       <QR open={qrOpen} onClose={handleToggleQR} />
       <FormDialog
@@ -141,7 +134,8 @@ export const App = () => {
         dialogOpen={dialogOpen}
         onChange={handleChange}
         onSubmit={handleSubmit}
-        onToggleDialog={handleToggleDialog} />
+        onToggleDialog={handleToggleDialog}
+      />
       <AlertDialog
         alertOpen={alertOpen}
         onEmpty={handleEmpty}
@@ -156,6 +150,6 @@ export const App = () => {
         onToggleAlert={handleToggleAlert}
         onToggleDialog={handleToggleDialog}
       />
-    </ThemeProvider >
-  )
+    </ThemeProvider>
+  );
 };
